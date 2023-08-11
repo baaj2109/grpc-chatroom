@@ -28,10 +28,15 @@ var (
 func (s *service) Login(ctx context.Context, in *pb.User) (*wrappers.StringValue, error) {
 	in.Id = uuid.New().String()
 	if _, ok := s.userMap.Load(in.Id); ok {
-		return nil, status.Errorf(codes.AlreadyExists, "已有同名用户,请换个用户名")
+		return nil, status.Errorf(codes.AlreadyExists, "已有同名用戶,請換個用戶名")
 	}
 	s.userMap.Store(in.Id, in)
-	go s.sendMessage(nil, &pb.ChatMessage{Id: "server", Content: fmt.Sprintf("%v 加入聊天室", in.Name), Time: uint64(time.Now().Unix())})
+	go s.sendMessage(nil,
+		&pb.ChatMessage{
+			Id:      "server",
+			Content: fmt.Sprintf("%v 加入聊天室", in.Name),
+			Time:    uint64(time.Now().Unix()),
+		})
 	// some work...
 	return &wrappers.StringValue{Value: in.Id}, status.New(codes.OK, "").Err()
 }
@@ -67,17 +72,25 @@ func (s *service) recvMessage(stream pb.ChatRoom_ChatServer) {
 	for {
 		mes, err := stream.Recv()
 		if err != nil {
+			if v, ok := s.userMap.Load(md.Get("uuid")[0]); ok {
+				s.sendMessage(stream,
+					&pb.ChatMessage{
+						Id:      "exit",
+						Content: fmt.Sprintf("%v 離開聊天室", v.(*pb.User).Name),
+						Time:    uint64(time.Now().Unix()),
+					})
+			}
 			s.L.Lock()
 			delete(workers, stream)
 			s.L.Unlock()
 			s.userMap.Delete(md.Get("uuid")[0])
-			fmt.Println("某个用户掉线,目前用户在线数量", len(workers))
+			fmt.Println("用戶離線,目前用戶在線數量", len(workers))
 			break
 		}
 		s.chatMessageCache = append(s.chatMessageCache, mes)
 		v, ok := s.userMap.Load(md.Get("uuid")[0])
 		if !ok {
-			fmt.Println("致命错误,用户不存在")
+			fmt.Println("致命錯誤,用戶不存在")
 			return
 		}
 		mes.Name = v.(*pb.User).Name

@@ -21,36 +21,36 @@ const (
 )
 
 func main() {
-	/* ---------------------------------- 连接服务器 --------------------------------- */
-	spinner, _ := pterm.DefaultSpinner.Start("正在连接聊天室")
+	/* ---------------------------------- 連接服務器 --------------------------------- */
+	spinner, _ := pterm.DefaultSpinner.Start("正在連接聊天室")
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		spinner.Fail("连接失败")
-		pterm.Fatal.Printfln("无法连接至服务器: %v", err)
+		spinner.Fail("連接失敗")
+		pterm.Fatal.Printfln("无法連接至服務器: %v", err)
 		return
 	}
 	c := pb.NewChatRoomClient(conn)
-	spinner.Success("连接成功")
-	/* ---------------------------------- 注册用户名 --------------------------------- */
+	spinner.Success("連接成功")
+	/* ---------------------------------- 注册用戶名 --------------------------------- */
 	var val *wrapperspb.StringValue
 	var user *pb.User
 	for {
-		result, _ := pterm.DefaultInteractiveTextInput.Show("创建用户名")
+		result, _ := pterm.DefaultInteractiveTextInput.Show("創建用戶名")
 		if strings.TrimSpace(result) == "" {
-			pterm.Error.Printfln("进入聊天室失败,没有取名字")
+			pterm.Error.Printfln("進入聊天室失敗,没有取名字")
 			continue
 		}
 		user = &pb.User{Name: result}
 		val, err = c.Login(context.TODO(), user)
 		if err != nil {
-			pterm.Error.Printfln("进入聊天室失败 %v", err)
+			pterm.Error.Printfln("進入聊天室失敗 %v", err)
 			continue
 		} else {
 			break
 		}
 	}
 	user.Id = val.Value
-	pterm.Success.Println("创建成功！开始聊天吧！")
+	pterm.Success.Println("創建成功！開始聊天吧！")
 	/* ---------------------------------- 聊天室逻辑 --------------------------------- */
 	stream, _ := c.Chat(metadata.AppendToOutgoingContext(context.Background(), "uuid", user.Id))
 	go func(pb.ChatRoom_ChatClient) {
@@ -58,7 +58,10 @@ func main() {
 			res, _ := stream.Recv()
 			switch res.Id {
 			case "server":
-				pterm.Success.Printfln("(%[2]v) [服务器] %[1]s ", res.Content, time.Unix(int64(res.Time), 0).Format(time.ANSIC))
+				pterm.Success.Printfln("(%[2]v) [server] %[1]s ", res.Content, time.Unix(int64(res.Time), 0).Format(time.ANSIC))
+			case "exit":
+				pterm.Warning.Printfln("(%[2]v) [User Exit] %[1]s ", res.Content, time.Unix(int64(res.Time), 0).Format(time.ANSIC))
+
 			default:
 				pterm.Info.Printfln("(%[3]v) %[1]s : %[2]s", res.Name, res.Content, time.Unix(int64(res.Time), 0).Format(time.ANSIC))
 			}
@@ -68,6 +71,10 @@ func main() {
 		inputReader := bufio.NewReader(os.Stdin)
 		input, _ := inputReader.ReadString('\n')
 		input = strings.TrimRight(input, "\r \n")
+		if input == "exit" {
+			// stream.Send(&pb.ChatMessage{Id: user.Id, Content: input})
+			break
+		}
 		// pterm.Info.Printfln("%s : %s", user.Name, input)
 		stream.Send(&pb.ChatMessage{Id: user.Id, Content: input})
 	}
