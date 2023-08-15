@@ -31,7 +31,7 @@ func main() {
 	}
 	c := pb.NewChatRoomClient(conn)
 	spinner.Success("連接成功")
-	/* ---------------------------------- 注册用戶名 --------------------------------- */
+	/* ---------------------------------- 註冊用戶名 --------------------------------- */
 	var val *wrapperspb.StringValue
 	var user *pb.User
 	for {
@@ -51,7 +51,7 @@ func main() {
 	}
 	user.Id = val.Value
 	pterm.Success.Println("創建成功！開始聊天吧！")
-	/* ---------------------------------- 聊天室逻辑 --------------------------------- */
+	/* ---------------------------------- 聊天室邏輯 --------------------------------- */
 	stream, _ := c.Chat(metadata.AppendToOutgoingContext(context.Background(), "uuid", user.Id))
 	go func(pb.ChatRoom_ChatClient) {
 		for {
@@ -72,7 +72,6 @@ func main() {
 		input, _ := inputReader.ReadString('\n')
 		input = strings.TrimRight(input, "\r \n")
 		if input == "exit" {
-			// stream.Send(&pb.ChatMessage{Id: user.Id, Content: input})
 			break
 		}
 		// pterm.Info.Printfln("%s : %s", user.Name, input)

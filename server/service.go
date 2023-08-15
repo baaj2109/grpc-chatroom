@@ -25,34 +25,20 @@ var (
 	workers map[pb.ChatRoom_ChatServer]pb.ChatRoom_ChatServer = make(map[pb.ChatRoom_ChatServer]pb.ChatRoom_ChatServer)
 )
 
-func (s *service) Login(ctx context.Context, in *pb.User) (*wrappers.StringValue, error) {
-	in.Id = uuid.New().String()
-	if _, ok := s.userMap.Load(in.Id); ok {
+func (s *service) Login(ctx context.Context, user *pb.User) (*wrappers.StringValue, error) {
+	user.Id = uuid.New().String()
+	if _, ok := s.userMap.Load(user.Id); ok {
 		return nil, status.Errorf(codes.AlreadyExists, "已有同名用戶,請換個用戶名")
 	}
-	s.userMap.Store(in.Id, in)
+	s.userMap.Store(user.Id, user)
 	go s.sendMessage(nil,
 		&pb.ChatMessage{
 			Id:      "server",
-			Content: fmt.Sprintf("%v 加入聊天室", in.Name),
+			Content: fmt.Sprintf("%v 加入聊天室", user.Name),
 			Time:    uint64(time.Now().Unix()),
 		})
 	// some work...
-	return &wrappers.StringValue{Value: in.Id}, status.New(codes.OK, "").Err()
-}
-
-func (s *service) sendMessage(stream pb.ChatRoom_ChatServer, mes *pb.ChatMessage) {
-	s.L.Lock()
-	for _, v := range workers {
-		if v != stream {
-			err := v.Send(mes)
-			if err != nil {
-				// err handle
-				continue
-			}
-		}
-	}
-	s.L.Unlock()
+	return &wrappers.StringValue{Value: user.Id}, status.New(codes.OK, "").Err()
 }
 
 func (s *service) Chat(stream pb.ChatRoom_ChatServer) error {
@@ -65,6 +51,20 @@ func (s *service) Chat(stream pb.ChatRoom_ChatServer) error {
 	}
 	s.recvMessage(stream)
 	return status.New(codes.OK, "").Err()
+}
+
+func (s *service) sendMessage(msgSendingServer pb.ChatRoom_ChatServer, mes *pb.ChatMessage) {
+	s.L.Lock()
+	for _, v := range workers {
+		if v != msgSendingServer {
+			err := v.Send(mes)
+			if err != nil {
+				// err handle
+				continue
+			}
+		}
+	}
+	s.L.Unlock()
 }
 
 func (s *service) recvMessage(stream pb.ChatRoom_ChatServer) {
